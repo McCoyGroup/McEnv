@@ -33,3 +33,27 @@ The built in `mcenv` function will help set up the environment, in particular by
 MCENV_PACKAGES_PATH - path to be prepended to `PYTHONPATH` to provide a custom packages directory that can be pointed to different places
 MCENV_SCRIPTS_PATH - path to a scripts directory that python will look into for runnable script files
 ```
+
+At this point `mcenv` can start a python shell with
+
+```shell script
+mcenv
+```
+
+run python scripts with
+
+```shell script
+mcenv --script path/to/script.py
+```
+
+run arbitrary bash code
+
+```shell script
+mcenv --sh path/to/script.sh
+```
+
+or just execute anything inside the env with
+
+```shell script
+mcenv --exec cmds...
+```
