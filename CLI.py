@@ -129,7 +129,7 @@ class CLI:
             sys.argv.pop(0)
             interactive_env["__name__"] = "McEnv.scripts." + os.path.splitext(os.path.basename(script))[0]
             if not os.path.exists(script):
-                script = os.path.join("", "home", 'scripts', script)
+                script = os.path.join("/", "home", 'scripts', script)
             with open(script) as scr:
                 src = scr.read()
                 src = compile(src, script, 'exec')
