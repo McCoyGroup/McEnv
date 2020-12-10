@@ -13,4 +13,6 @@ FROM continuumio/anaconda3
 
 ADD . /home/McEnv
 
+WORKDIR /home
+
 ENTRYPOINT ["/bin/bash", "/home/McEnv/CLI.sh"]
