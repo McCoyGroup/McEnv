@@ -129,7 +129,7 @@ function mcenv_shifter() {
     fi
 
     if [[ "$config" = "" ]]; then
-      config="$PWD/config";
+      config="$PWD";
     fi
 
     if [[ -d "$config" ]]; then
@@ -223,7 +223,7 @@ function mcenv_singularity() {
     fi
 
     if [[ "$config" = "" ]]; then
-      config="$PWD/config";
+      config="$PWD";
     fi
 
     if [[ -d "$config" ]]; then
@@ -303,12 +303,12 @@ function mcenv_docker() {
     fi
 
     if [[ "$config" = "" ]]; then
-      config="$PWD/config";
+      config="$PWD";
     fi
 
     if [[ -d "$config" ]]; then
       if [[ "$vols" == "" ]]; then
-        vols="$packages:/home/packages";
+        vols="$config:/home/packages";
       else
         vols="$vols,$packages:/home/packages";
       fi
@@ -351,6 +351,7 @@ function mcenv_docker() {
 }
 
 function mcenv() {
+
   local img="$MCENV_IMAGE";
   local cmd;
 
