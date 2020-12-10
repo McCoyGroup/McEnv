@@ -141,7 +141,11 @@ function mcenv_shifter() {
     fi
 
     if [[ "$lib" != "" ]]; then
-      vols="$lib:/home/McEnv";
+      if [[ "$vols" == "" ]]; then
+        vols="$lib:/home/McEnv";
+      else
+        vols="$vols,$lib:/home/McEnv";
+      fi
     fi
 
     if [[ "$img" = "" ]]; then
@@ -231,7 +235,11 @@ function mcenv_singularity() {
     fi
 
     if [[ "$lib" != "" ]]; then
-      vols="$lib:/home/McEnv";
+      if [[ "$vols" == "" ]]; then
+        vols="$lib:/home/McEnv";
+      else
+        vols="$vols,$lib:/home/McEnv";
+      fi
     fi
 
     if [[ "$img" = "" ]]; then
@@ -307,7 +315,11 @@ function mcenv_docker() {
     fi
 
     if [[ "$lib" != "" ]]; then
-      vols="$lib:/home/McEnv";
+      if [[ "$vols" == "" ]]; then
+        vols="$lib:/home/McEnv";
+      else
+        vols="$vols,$lib:/home/McEnv";
+      fi
     fi
 
     if [[ "$img" = "" ]]; then
