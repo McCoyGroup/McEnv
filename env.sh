@@ -129,7 +129,7 @@ function mcenv_shifter() {
     fi
 
     if [[ "$config" = "" ]]; then
-      config="$PWD";
+      config="$PWD/config";
     fi
 
     if [[ -d "$config" ]]; then
@@ -223,7 +223,7 @@ function mcenv_singularity() {
     fi
 
     if [[ "$config" = "" ]]; then
-      config="$PWD";
+      config="$PWD/config";
     fi
 
     if [[ -d "$config" ]]; then
@@ -303,7 +303,7 @@ function mcenv_docker() {
     fi
 
     if [[ "$config" = "" ]]; then
-      config="$PWD";
+      config="$PWD/config";
     fi
 
     if [[ -d "$config" ]]; then
