@@ -84,7 +84,7 @@ function mcargcount {
 #                   SYSTEM-SPECIFIC FUNCTIONS
 ######################################################################
 
-MCENV_OPT_PATTERN=":eV:";
+MCENV_OPT_PATTERN=":eGV:";
 function mcenv_shifter() {
 
     local config="$MCENV_CONFIG_PATH";
@@ -93,6 +93,7 @@ function mcenv_shifter() {
     local img="$MCENV_IMAGE";
     local vols="";
     local do_echo="";
+    local do_gpus="";
     local arg_count;
     local packages;
     local scripts;
@@ -101,8 +102,10 @@ function mcenv_shifter() {
     arg_count=$(mcargcount $@)
     vols=$(mcoptvalue $MCENV_OPT_PATTERN "V" ${@:1:arg_count})
     do_echo=$(mcoptvalue $MCENV_OPT_PATTERN "e" ${@:1:arg_count})
+    do_gpus=$(mcoptvalue $MCENV_OPT_PATTERN "G" ${@:1:arg_count})
     if [[ "$vols" != "" ]]; then shift 2; fi
     if [[ "$do_echo" != "" ]]; then shift; fi
+    if [[ "$do_gpus" != "" ]]; then shift; fi
 
     if [[ "$packages" = "" ]]; then
       packages="$PWD/packages";
@@ -187,6 +190,7 @@ function mcenv_singularity() {
     local img="$MCENV_IMAGE";
     local vols="";
     local do_echo="";
+    local do_gpus="";
     local arg_count;
     local packages;
     local scripts;
@@ -195,8 +199,10 @@ function mcenv_singularity() {
     arg_count=$(mcargcount $@)
     vols=$(mcoptvalue $MCENV_OPT_PATTERN "V" ${@:1:arg_count})
     do_echo=$(mcoptvalue $MCENV_OPT_PATTERN "e" ${@:1:arg_count})
+    do_gpus=$(mcoptvalue $MCENV_OPT_PATTERN "G" ${@:1:arg_count})
     if [[ "$vols" != "" ]]; then shift 2; fi
     if [[ "$do_echo" != "" ]]; then shift; fi
+    if [[ "$do_gpus" != "" ]]; then shift; fi
 
     if [[ "$packages" = "" ]]; then
       packages="$PWD/packages";
@@ -247,7 +253,13 @@ function mcenv_singularity() {
     fi
 
     # Set the entrypoint and define any args we need to pass
-    cmd="singularity run --bind $vols"
+    cmd="singularity run"
+    if [[ "$do_gpus" ]]; then
+      cmd="$cmd --nv"
+    fi
+    if [[ "$vols" ]]; then
+      cmd="$cmd --bind $vols"
+    fi
 
     #We might want to just echo the command
     if [[ "$do_echo" == "" ]]; then
@@ -267,6 +279,7 @@ function mcenv_docker() {
     local img="$MCENV_IMAGE";
     local vols="";
     local do_echo="";
+    local do_gpus="";
     local arg_count;
     local packages;
     local scripts;
@@ -275,8 +288,10 @@ function mcenv_docker() {
     arg_count=$(mcargcount $@)
     vols=$(mcoptvalue $MCENV_OPT_PATTERN "V" ${@:1:arg_count})
     do_echo=$(mcoptvalue $MCENV_OPT_PATTERN "e" ${@:1:arg_count})
+    do_gpus=$(mcoptvalue $MCENV_OPT_PATTERN "G" ${@:1:arg_count})
     if [[ "$vols" != "" ]]; then shift 2; fi
     if [[ "$do_echo" != "" ]]; then shift; fi
+    if [[ "$do_gpus" != "" ]]; then shift; fi
 
     if [[ "$packages" = "" ]]; then
       packages="$PWD/packages";
