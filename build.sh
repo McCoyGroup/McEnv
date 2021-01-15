@@ -20,6 +20,7 @@ if [[ "$build_type" = "update" ]]; then
   docker build -t $IMAGE_NAME -f $PACKAGE_PATH/DockerfileUpdate $PACKAGE_PATH
 else
   docker build -t $IMAGE_NAME -f $PACKAGE_PATH/Dockerfile $PACKAGE_PATH
+  docker tag $IMAGE_NAME $IMAGE_NAME-core
 fi
 if [[ "$push" == "--push" ]]; then
   docker tag $IMAGE_NAME $DOCKER_IMAGE_NAME

@@ -1,0 +1,24 @@
+##################################################################################
+#
+#  McEnv Core:
+#    we don't want to have to rebuild everytime we make an incremental edit
+#    to the McEnv source, so we build off an existing image
+#
+##################################################################################
+FROM mcenv-core
+
+##################################################################################
+#
+#  McEnv:
+#    we're going to bundle a small set of useful scripts, but not introduce
+#    any complicated runtime logic or any of that jazz
+#    this is inspired by the earlier RynLib container which had a similar sort
+#    of run script, but which also had much more complicated eval. semantics
+#
+##################################################################################
+
+ADD . /home/McEnv
+
+# RUN . /opt/conda/bin/activate base \
+#  && conda env update --file /home/McEnv/environment.yml --prune
+
