@@ -4,13 +4,27 @@ This is basically empty right now, since I can't forsee using this...
 but who knows maybe we'll find a use for it.
 """
 
-import sys, os, argparse
+import sys, os, argparse, runpy, importlib
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+def set_script_module(name, spec, var_dict):
+    """
+    Makes sure the script module is registered
+    to break pickling issues if a __name__ == '__main__' block
+    equivalent is called in the script
+    """
+    # multiprocessing fucks us over in a script environment
+    # so we gotta do a bit of extra shit
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    for k,v in var_dict.items():
+        setattr(mod, k, v)
 
 class CLI:
 
     command_prefix='cli_method_'
     command_groups=['files']
+    __env__ = ""
 
     def __init__(self, group=None, command=None):
         if group is None or command is None:
@@ -112,6 +126,12 @@ class CLI:
             print(res)
         return res
 
+    def __getstate__(self):
+        """ Do nothing """
+        return {}
+    def __setstate__(self):
+        """ Do nothing """
+        pass
     @classmethod
     def run_command(cls, parse):
         # detect whether interactive run or not
@@ -121,20 +141,25 @@ class CLI:
         if parse.script or interact:
              sys.path.insert(0, os.getcwd())
              interactive_env = {
-                 "__name__": "McEnv.script"
+                 "__env__": "__script__"
                 }
         # in a script environment we just read in the script and run it
         if parse.script:
             script = sys.argv[1]
             sys.argv.pop(0)
-            interactive_env["__name__"] = "McEnv.scripts." + os.path.splitext(os.path.basename(script))[0]
             if not os.path.exists(script):
-                script = os.path.join("/", "home", 'scripts', script)
-            with open(script) as scr:
-                src = scr.read()
-                src = compile(src, script, 'exec')
-            interactive_env["__file__"] = script
-            exec(src, interactive_env, interactive_env)
+                script_dir = os.path.join("/", "home", 'scripts')
+                script = os.path.join(script_dir, script)
+            sys.path.insert(0, os.path.dirname(script))
+            script_mod=os.path.splitext(os.path.basename(script))[0]
+            # importlib.import_module(script_mod)
+            interactive_env["__name__"] = os.path.splitext(os.path.basename(script))[0]
+            runpy.run_module(script_mod, init_globals={"__env__":"__script__"})
+            # with open(script) as scr:
+            #     src = scr.read()
+            #     src = compile(src, script, 'exec')
+            # interactive_env["__file__"] = script
+            # exec(src, interactive_env, interactive_env)
         elif parse.help:
             if len(sys.argv) == 1:
                 print("mcenv [--interact|--script] GRP CMD [ARGS] runs something in McEnv with the specified command")
