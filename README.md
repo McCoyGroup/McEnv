@@ -1,7 +1,7 @@
 
 # McEnv
 
-This is a light-weight template for a container that provides a standardized environment so that code written for a local machine can run just as cleanly on an HPC (both Hyak/Mox and NeRSC/Cori) are currently supported.
+This is a batteries-included template for a container that provides a standardized environment so that code written for a local machine can run just as cleanly on an HPC (both Hyak/Mox and NeRSC/Cori are currently supported).
 
 Currently we just package Anaconda and `gfort`, but like we can include whatever we need.
 

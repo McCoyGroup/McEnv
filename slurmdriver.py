@@ -31,16 +31,19 @@ class SubprocessEndPoint(EndPoint):
     system
     """
     def __call__(self, *args, **kwargs):
-        try:
-            runny = subprocess.run(
-                [self.name, *args],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                **kwargs
-                )
-        except subprocess.CalledProcessError as e:
-            raise IOError(e.output.decode())
+        runny = subprocess.run(
+            [self.name, *args],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            **kwargs
+            )
+        if runny.returncode > 0:
+            out = runny.stderr.decode()
+            if len(out) == 0:
+                out = runny.stdout.decode()
+
+            raise IOError(out)
 
         out = runny.stdout
 
@@ -428,9 +431,9 @@ class APIClient(code.InteractiveConsole):
                 out = result['output']
                 if isinstance(out, list):
                     out = "\n".join(out)
-                print("ERROR:", out, "from", result['endpoint'])
+                print("ERROR ({}):".format(result['endpoint']), out)
             else:
-                print("ERROR:", "no output from", result['endpoint'])
+                print("ERROR ({}):".format(result['endpoint']), "no output")
 
     def runcode(self, job):
         return self.run_job(job, poll_time=self._poll_time, timeout=self._timeout)
