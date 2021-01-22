@@ -1,5 +1,7 @@
 *.DS_Store
 
+Icon?
+
 Peeves
 DockerfileEntos
 SingularityEntos.def

@@ -3,8 +3,10 @@ Tiny python script that can run in the background and submit SLURM jobs when the
 to file by delegating to `subprocess.call`
 """
 
-import json, subprocess, os, pathlib, code
-import datetime, argparse, abc, threading, time, traceback as tb
+import json, subprocess, os, threading, time, abc
+import pathlib, hashlib # folder server
+import socket, base64, re # socket server
+import datetime, argparse, code # client setup
 
 class EndPoint:
     """
@@ -78,17 +80,194 @@ class ExecEndPoint(EndPoint):
     def __call__(self, *args, **kwargs):
         exec(*args, **kwargs)
 
+class JobServer(metaclass=abc.ABCMeta):
+    """
+    Minimal abstract job server that can listen for jobs and write results
+    """
+    @abc.abstractmethod
+    def get_jobs(self):
+        """
+        :return:
+        :rtype: Iterable[dict]
+        """
+    def lock_job(self, job):
+        """
+        :return:
+        :rtype: Iterable[dict]
+        """
+        pass
+    @abc.abstractmethod
+    def write_result(self, res):
+        """
+        :return:
+        :rtype: Iterable[dict]
+        """
+class TCPJobServer(JobServer):
+    """
+    JobServer that delegates to a TCP job socket
+    """
+    def __init__(self, job_spec, res_spec, socket_type=(socket.AF_UNIX, socket.SOCK_STREAM)):
+        """
+
+        :param job_spec: speci
+        :type job_spec:
+        :param res_spec:
+        :type res_spec:
+        """
+
+        self.job_socket = socket.socket(*socket_type)
+        self._job_conn, self._job_addr = None, None
+        self._job_spec = job_spec
+        self.results_socket = socket.socket(*socket_type)
+        self._res_conn, self._res_addr = None, None
+        self._res_spec = res_spec
+        self._connected = False
+        self.chunk_size = 2**16
+
+    def bind(self):
+        """
+        Connects to both the job and results sockets
+        :return:
+        :rtype:
+        """
+        if not self._connected:
+            print('CONNECTING TO JOB SOCKET:', self._job_spec)
+            self.job_socket.bind(self._job_spec)
+            self.job_socket.listen(1)
+            self._job_conn, self._job_addr = self.job_socket.accept()
+
+            print('CONNECTING TO RESULTS SOCKET:', self._job_spec)
+            self.results_socket.bind(self._res_spec)
+            self.results_socket.listen(1)
+            self._res_conn, self._res_addr = self.results_socket.accept()
+
+            self._connected = True
+
+    job_parser_regex = "\[[\w=+/]+\]"
+    def get_jobs(self):
+        """
+        Listens for a job or series of jobs to process
+        as JSON
+        :return:
+        :rtype:
+        """
+        self.bind()
+        # print("GETTING JOBS OFF SOCKET: (chunksize {})".format(self.chunk_size))
+        request_block = self._job_conn.recv(self.chunk_size).decode('ascii')
+
+        # jobs are sent as base-64 blobs wrapped in brackets
+        if isinstance(self.job_parser_regex, str):
+            self.job_parser_regex = re.compile(self.job_parser_regex)
+
+        requests = re.findall(self.job_parser_regex, request_block)
+
+        # print("PARSED", requests)
+
+        jobs = []
+        for req in requests:
+            req = req[1:-1]
+            # print("GOT", req)
+            req = base64.b64decode(req)
+            try:
+                job = json.loads(req)
+            except:
+                pass
+            else:
+                jobs.append(job)
+
+        return jobs
+
+    def write_result(self, res):
+        """
+        :param res:
+        :type res: dict
+        """
+        sub = base64.b64encode(json.dumps(res).encode('ascii')).decode('ascii')
+        sub = '{'+sub+'}'
+        self.bind()
+        send_bytes = sub.encode('ascii')
+        if len(send_bytes) > self.chunk_size:
+            raise ValueError("job too large to be sent with default chunk size {} (for {})".format(self.chunk_size, res))
+        # print("PUTTING RESULTS IN SOCKET: (chunksize {})".format(self.chunk_size))
+        self._res_conn.send(send_bytes)
+
+class FolderJobServer(JobServer):
+    """
+    JobServer that looks for JSON files in a folder
+    """
+
+    def __init__(self, job_source, job_archive):
+        self.source = job_source
+        self.archive = job_archive
+        os.makedirs(self.source, exist_ok=True)
+        os.makedirs(self.archive, exist_ok=True)
+        self.last_poll_time = None
+    def get_jobs(self):
+        """
+        Pulls jobs from job directory
+        :return:
+        :rtype: Iterable[dict]
+        """
+        jobs = []
+        for f in os.listdir(self.source):
+            f = os.path.join(self.source, f)
+            if os.path.isfile(f) and (
+                    self.last_poll_time is None
+                    or os.stat(f).st_mtime > self.last_poll_time
+            ):
+                with open(f) as src:
+                    try:
+                        job = json.load(src)
+                    except:
+                        pass
+                    else:
+                        job['file'] = f
+                        jobs.append(f)
+        return jobs
+    def write_job(self, job):
+        """
+        Writes out a job to file
+        :param job:
+        :type job:
+        :return:
+        :rtype:
+        """
+        with open(job['file'], 'w') as jf:
+            json.dump(job, jf, indent=4)
+    write_result = write_job
+    def archive_job(self, jobfile):
+        """
+        Archives the job file so it doesn't keep getting resubmitted
+        :param jobfile:
+        :type jobfile:
+        :return:
+        :rtype:
+        """
+        time_stamp = datetime.datetime.now().isoformat()
+        basename = os.path.basename(jobfile)
+        out_file = os.path.join(self.archive, time_stamp+"_"+basename)
+        os.rename(jobfile, out_file)
+    def lock_job(self, job_spec):
+        """
+        Sets job status to 'running'
+        """
+        job_spec['status'] = 'running'
+        self.write_result(job_spec)
+
 class APIServer:
     """
     A minimal API driver that can parse jobs from JSON,
     then delegate to some sort of caller
     """
-    def __init__(self, job_source, job_archive, endpoints):
-        self.source = job_source
-        self.archive = job_archive
-        os.makedirs(self.source, exist_ok=True)
-        os.makedirs(self.archive, exist_ok=True)
+    def __init__(self, socket, endpoints):
+        """
+        :param socket:
+        :type socket: JobServer
+        :param endpoints:
+        :type endpoints:
+        """
         self.endpoints = {e.name:e for e in endpoints}
+        self.socket = socket
         self._active = False
     schema_keys = ['endpoint', 'arguments']
     def validate_job_schema(self, job):
@@ -103,21 +282,13 @@ class APIServer:
         Loads the job specifications
         """
         jobs = []
-        for f in os.listdir(self.source):
-            f = os.path.join(self.source, f)
-            if os.path.isfile(f):
-                with open(f) as src:
-                    try:
-                        job = json.load(src)
-                    except:
-                        pass
-                    else:
-                        if self.validate_job_schema(job):
-                            if 'status' in job:
-                                if job['status'] != 'ready':
-                                    continue
-                            job['file'] = f
-                            jobs.append(job)
+        for job in self.socket.get_jobs():
+            if self.validate_job_schema(job):
+                if 'status' in job:
+                    if job['status'] != 'ready':
+                        continue
+                jobs.append(job)
+
         return jobs
     def resolve_endpoint(self, endpoint):
         """
@@ -147,8 +318,7 @@ class APIServer:
             err_msg = str(e)
             job_spec['status'] = 'error'
             job_spec['output'] = err_msg
-            with open(job_spec['file'], 'w') as jf:
-                json.dump(job_spec, jf, indent=4)
+            self.socket.write_result(job_spec)
             print("ERROR:\n{}".format(err_msg))
         else:
             job_spec['status'] = 'complete'
@@ -159,27 +329,8 @@ class APIServer:
                     job_spec['output'] = str(res)
                 else:
                     job_spec['output'] = res
-            with open(job_spec['file'], 'w') as jf:
-                json.dump(job_spec, jf, indent=4)
-    def archive_job(self, jobfile):
-        """
-        Archives the job file so it doesn't keep getting resubmitted
-        :param jobfile:
-        :type jobfile:
-        :return:
-        :rtype:
-        """
-        time_stamp = datetime.datetime.now().isoformat()
-        basename = os.path.basename(jobfile)
-        out_file = os.path.join(self.archive, time_stamp+"_"+basename)
-        os.rename(jobfile, out_file)
-    def lock_job(self, job_spec):
-        """
-        Sets job status to 'running'
-        """
-        job_spec['status'] = 'running'
-        with open(job_spec['file'], 'w') as jf:
-            json.dump(job_spec, jf, indent=4)
+            self.socket.write_result(job_spec)
+
     def handle_job(self, jspec):
         """
         :return:
@@ -188,10 +339,7 @@ class APIServer:
         endpoint = self.resolve_endpoint(jspec['endpoint'])
         # we do evaluations on separate threads because I hate myself
         if endpoint is not None:
-            if 'archive' in jspec and jspec['archive']:
-                self.archive_job(jspec['file'])
-            else:
-                self.lock_job(jspec)
+            self.socket.lock_job(jspec)
             thread = threading.Thread(
                 target=self.call_endpoint,
                 daemon=True,
@@ -213,8 +361,7 @@ class APIServer:
             for job in jobs:
                 if job['endpoint'] == self.kill_endpoint:
                     job['status'] = 'complete'
-                    with open(job['file'], 'w') as jf:
-                        json.dump(job, jf, indent=4)
+                    self.socket.write_result(job)
                     self._active = False
                     break
                 else:
@@ -227,17 +374,223 @@ class APIServer:
                             job['endpoint'],
                             list(self.endpoints.keys()) + [self.kill_endpoint]
                         )
-                        with open(job['file'], 'w') as jf:
-                            json.dump(job, jf, indent=4)
+                        self.socket.write_result(job)
             for job, thread in active:
                 thread.join(timeout=timeout)
                 if thread.is_alive():
                     job['status'] = "timeout"
                     job['output'] = ""
-                    with open(job['file'], 'w') as jf:
-                        json.dump(job, jf, indent=4)
+                    self.socket.write_result(job)
                     print("ERROR: dangling thread never timed-out")
             time.sleep(poll_time)
+
+class JobClient(metaclass=abc.ABCMeta):
+    """
+    Abstract client that provides a simple interface
+    for writing jobs and listen for results
+    """
+    def get_job_name(self, job):
+        """
+        Gets name for a job to write to the server
+        :param job:
+        :type job:
+        :return:
+        :rtype:
+        """
+        base_name = job['endpoint']
+        arg_hash = hashlib.sha1(str(tuple(job['arguments'])).encode()).hexdigest()
+        return "{}_{}".format(base_name, arg_hash)
+    @abc.abstractmethod
+    def write_job(self, job):
+        """
+        :param job:
+        :type job: dict
+        :return:
+        :rtype: str
+        """
+    def submit_job(self, job):
+        """
+        :param job:
+        :type job: dict
+        :return:
+        :rtype: str
+        """
+        job['name'] = self.get_job_name(job)
+        self.write_job(job)
+        return job
+    @abc.abstractmethod
+    def get_results(self):
+        """
+        :return:
+        :rtype: Iterable[dict]
+        """
+
+class FolderJobClient(JobClient):
+    """
+    A job client that reads from a folder
+    """
+    def __init__(self, jobdir):
+        # cache of previous modification times
+        # so that we can track multiple job results at once
+        self.source = jobdir
+        self._modtime_cache = {}
+
+    def get_job_name(self, job):
+        return "{}.json".format(super().get_job_name(job))
+
+    def write_job(self, job):
+        """
+        Writes job to a JSON file
+        that can be handled by the server
+
+        :return:
+        :rtype: str
+        """
+        name = self.get_job_name(job)
+        job_file = os.path.join(self.source, name)
+        with open(job_file, "w+") as js:
+            json.dump(job, js)
+        write_time = os.stat(job_file).st_mtime
+        self._modtime_cache[job_file] = write_time
+        return job_file
+
+    def get_jobs(self):
+        """
+        Pulls jobs from job directory
+        :return:
+        :rtype: Iterable[dict]
+        """
+        jobs = []
+        for f in os.listdir(self.source):
+            f = os.path.join(self.source, f)
+            if os.path.isfile(f) and (
+                    self.last_poll_time is None
+                    or os.stat(f).st_mtime > self.last_poll_time
+            ):
+                with open(f) as src:
+                    try:
+                        job = json.load(src)
+                    except:
+                        pass
+                    else:
+                        job['file'] = f
+                        jobs.append(f)
+        return jobs
+
+    def get_results(self):
+        """
+        Gets all the results that have been written & which
+        are formatted properly
+        :return:
+        :rtype:
+        """
+
+        mod_times = self._modtime_cache
+        results = []
+        for f in os.listdir(self.source):
+            f = os.path.join(self.source, f)
+            if os.path.isfile(f) and (
+                    f not in mod_times
+                    or os.stat(f).st_mtime > mod_times[f]
+            ):
+                with open(f) as src:
+                    try:
+                        res = json.load(src)
+                    except:
+                        pass
+                    else:
+                        results.append(res)
+
+class TCPJobClient(JobClient):
+    """
+    A job client (i.e. the write job/get result branch)
+    which uses a TCP socket
+    """
+    def __init__(self, job_spec, res_spec, socket_type=(socket.AF_UNIX, socket.SOCK_STREAM)):
+        """
+
+        :param job_spec: speci
+        :type job_spec:
+        :param res_spec:
+        :type res_spec:
+        """
+
+        self.job_socket = socket.socket(*socket_type)
+        self._job_spec = job_spec
+        self.results_socket = socket.socket(*socket_type)
+        self._res_spec = res_spec
+        self._connected = False
+        self.chunk_size = 2**16
+
+    def bind(self, retries=5):
+        """
+        Connects to both the job and results sockets
+        :return:
+        :rtype:
+        """
+        if not self._connected:
+            try:
+                self.job_socket.connect(self._job_spec)
+            except FileNotFoundError:
+                raise IOError("Server must be initialized before client")
+            else:
+                time.sleep(.1)
+                while not self._connected and retries > 0:
+                    try:
+                        self.results_socket.connect(self._res_spec)
+                    except FileNotFoundError:
+                        retries -= 1
+                        time.sleep(.1)
+                    else:
+                        self._connected = True
+
+    def write_job(self, job):
+        """
+        :param job:
+        :type job: dict
+        :return:
+        :rtype: str
+        """
+        sub = base64.b64encode(json.dumps(job).encode('ascii')).decode('ascii')
+        sub = '['+sub+']'
+        self.bind()
+        send_bytes = sub.encode('ascii')
+        if len(send_bytes) > self.chunk_size:
+            raise ValueError("job too large to be sent with default chunk size {} (for {})".format(self.chunk_size, job))
+        # print("PUTTING JOB IN SOCKET: (chunksize {})".format(self.chunk_size))
+        self.job_socket.send(send_bytes)
+    res_parser_regex = "\{[\w=+/]+\}"
+    def get_results(self):
+        """
+        Listens for results
+        :return:
+        :rtype:
+        """
+        self.bind()
+        # print("GETTING RESULTS OFF SOCKET: (chunksize {})".format(self.chunk_size))
+        request_block = self.results_socket.recv(self.chunk_size).decode('ascii')
+
+        # jobs are sent as base-64 blobs wrapped in brackets
+        if isinstance(self.res_parser_regex, str):
+            self.res_parser_regex = re.compile(self.res_parser_regex)
+
+        requests = re.findall(self.res_parser_regex, request_block)
+
+        # print("PARSED", request_block)
+
+        results = []
+        for req in requests:
+            req = req[1:-1]
+            # print("GOT", req)
+            req = base64.b64decode(req)
+            try:
+                res = json.loads(req)
+            except:
+                pass
+            else:
+                results.append(res)
+
+        return results
 
 class APIClient(code.InteractiveConsole):
     """
@@ -245,11 +598,20 @@ class APIClient(code.InteractiveConsole):
     submits jobs, listens for responses, and prints output
     """
 
-    def __init__(self, job_source, banner=None):
+    def __init__(self, socket, banner=None):
+        """
+        :param socket:
+        :type socket: JobClient
+        :param banner:
+        :type banner:
+        """
         super().__init__()
         self.banner = banner
         self.compile = self._parse_job
-        self.source = job_source
+
+        self.socket = socket
+        self._res_buffer = {}
+
         # just to pass stuff through...
         self._poll_time = .5
         self._timeout = 20
@@ -319,7 +681,6 @@ class APIClient(code.InteractiveConsole):
                 job = {"endpoint":splits[0], "arguments":self.parse_arguments(splits[1])}
 
         return job
-
     def compile_input(self, read=None):
         """
         Parses input as a job
@@ -335,49 +696,27 @@ class APIClient(code.InteractiveConsole):
             cmd += read()
             job = self.parse_job(cmd)
         return job
-    def get_job_name(self, job):
-        """
-        Gets name for a job to write to the server
-        :param job:
-        :type job:
-        :return:
-        :rtype:
-        """
-        base_name = job['endpoint']
-        arg_hash = hash(tuple(job['arguments']))
-        return "{}_{}.json".format(base_name, arg_hash)
-    def submit_job(self, job):
-        """
-        Writes job to a JSON file
-        that can be handled by the server
-
-        :return:
-        :rtype:
-        """
-        name = self.get_job_name(job)
-        job_file = os.path.join(self.source, name)
-        with open(job_file, "w+") as js:
-            json.dump(job, js)
-        job_file = pathlib.Path(job_file)
-        write_time = job_file.stat().st_mtime
-        return job_file, write_time
 
     complete_statuses = {'complete', 'error'}
-    def read_output(self, job_file, mod_time=None, poll_time=.5, timeout=20):
+    def read_result(self, job, polltime=.5, timeout=20):
         """
+        Periodically pulls all updates, checks to see if `job` has been updated (or if `job` is in the buffer)
+        and if not, sleeps for `polltime` and, finally, hits a `timeout` if necessary
+
         Waits to read output from the job_file, checking the `mod_time` to
         make sure that file contents aren't reloaded unnecessarily.
         Should probably use a lockfile but I'm feeling lazy so we're just gonna
         query the mod times.
 
-        :param job_file:
-        :type job_file: pathlib.Path
+        :param job:
+        :type job:
+        :param polltime:
+        :type polltime:
+        :param timeout:
+        :type timeout:
         :return:
         :rtype:
         """
-
-        if mod_time is None:
-            mod_time = job_file.stat().st_mtime
 
         status = 'ready'
         result = None
@@ -385,30 +724,35 @@ class APIClient(code.InteractiveConsole):
         elapsed = (time.time() - start_time)
         # loop, check mod time, pull content, etc.
         while elapsed < timeout:
-            new_mod = job_file.stat().st_mtime
-            if new_mod != mod_time:
-                with job_file.open() as js:
-                    result = json.load(js)
-                    if 'status' not in result:
-                        if 'output' in result:
-                            result['status'] = 'complete'
-                        else:
-                            result['status'] = 'error'
-                    status = result['status']
-                mod_time = new_mod
+            if job['name'] not in self._res_buffer:
+                updates = self.socket.get_results()
+                for res in updates:
+                    name = res['name']
+                    self._res_buffer[name] = res
+                # print("BUFFER:", job['name'], self._res_buffer)
+            if job['name'] in self._res_buffer:
+                result = self._res_buffer[job['name']]
+                del self._res_buffer[job['name']]
+                if 'status' not in result:
+                    if 'output' in result:
+                        result['status'] = 'complete'
+                    else:
+                        result['status'] = 'error'
+                status = result['status']
+
             if status in self.complete_statuses:
                 break
             elapsed = (time.time() - start_time)
             if elapsed < timeout:
-                time.sleep(poll_time)
+                time.sleep(polltime)
         else:
             if result is None:
                 result = {"status":"error", "endpoint":"unknown", "output":["timeout"]}
             else:
                 result['status'] = 'error'
                 result["output"] = ["timeout"]
-        return result
 
+        return result
     def handle_result(self, result):
         """
         Handles the result returned by the
@@ -450,12 +794,8 @@ class APIClient(code.InteractiveConsole):
         :return:
         :rtype:
         """
-        file, mod_time = self.submit_job(job)
-        out = self.read_output(file,
-                               mod_time=mod_time,
-                               poll_time=poll_time,
-                               timeout=timeout
-                               )
+        job = self.socket.submit_job(job)
+        out = self.read_result(job, polltime=poll_time, timeout=timeout)
         self.handle_result(out)
 
     default_prompt = "<api-client> $ "
@@ -523,6 +863,11 @@ if __name__ == "__main__":
                         default="server",
                         dest='mode'
                         )
+    parser.add_argument('--jobmode',
+                        type=str,
+                        default="socket",
+                        dest='jobmode'
+                        )
     boolz = lambda s: False if len(s) == 0 else bool(eval(s))
     parser.add_argument('--exec',
                         type=boolz,
@@ -535,7 +880,15 @@ if __name__ == "__main__":
     if archivedir == "":
         archivedir = os.path.join(jobdir, 'archive')
     if opts.mode == "client":
-        SLURMClient = APIClient(jobdir, banner="="*40 + "STARTING NODE CLIENT" + "="*40)
+        if opts.jobmode=='socket':
+            jobs, results = os.path.join(jobdir, '.jobs'), os.path.join(jobdir, '.results')
+            job_client = TCPJobClient(jobs, results)
+        else:
+            job_client = FolderJobClient(jobdir)
+        SLURMClient = APIClient(
+            job_client,
+            banner="="*40 + "STARTING NODE CLIENT" + "="*40
+        )
         SLURMClient.client_loop(poll_time=opts.polltime, timeout=opts.timeout)
     else:
         endpoints = [
@@ -550,8 +903,22 @@ if __name__ == "__main__":
             ]
         if opts.allow_exec:
             endpoints.append(ExecEndPoint("exec"))
+
+        if opts.jobmode=='socket':
+            jobs, results = os.path.join(jobdir, '.jobs'), os.path.join(jobdir, '.results')
+            try:
+                os.remove(jobs)
+            except OSError:
+                pass
+            try:
+                os.remove(results)
+            except OSError:
+                pass
+            job_server = TCPJobServer(jobs, results)
+        else:
+            job_server = FolderJobServer(jobdir, archivedir)
         SLURMDriver = APIServer(
-            jobdir, archivedir,
+            job_server,
             endpoints
         )
 
