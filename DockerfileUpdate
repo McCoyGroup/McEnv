@@ -19,6 +19,6 @@ FROM mcenv-core
 
 ADD . /home/McEnv
 
-# RUN . /opt/conda/bin/activate base \
-#  && conda env update --file /home/McEnv/environment.yml --prune
+RUN . /opt/conda/bin/activate base \
+ && conda env update --file /home/McEnv/environment.yml --prune
 
