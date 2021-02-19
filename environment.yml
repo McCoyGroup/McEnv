@@ -2,3 +2,4 @@ dependencies:
   - pip
   - pip:
       - tensorflow-gpu
+      - memory-profiler
