@@ -19,8 +19,8 @@ elif [[ "$1" == "--sh" ]]; then
   /bin/bash $@
 elif [[ "$1" == "--memprof" ]]; then
   shift 1;
-  mprof run python3 "/home/McEnv/CLI.py" $@
+  mprof run python3 -u "/home/McEnv/CLI.py" $@
   mprof plot
 else
-  python3 "/home/McEnv/CLI.py" $@
+  python3 -u "/home/McEnv/CLI.py" $@
 fi
