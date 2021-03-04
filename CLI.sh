@@ -18,9 +18,11 @@ elif [[ "$1" == "--sh" ]]; then
   shift 1;
   /bin/bash $@
 elif [[ "$1" == "--memprof" ]]; then
-  shift 1;
+  mprof_file="$2";
+  shift 2;
+  echo "Saving memory profile image to $mprof_file";
   mprof run python3 -u "/home/McEnv/CLI.py" $@
-  mprof plot
+  mprof plot -o mprof_file
 else
   python3 -u "/home/McEnv/CLI.py" $@
 fi
