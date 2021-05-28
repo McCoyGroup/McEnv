@@ -6,7 +6,7 @@
 # supports bootstrapping to make it possible just have the one
 # image, since we don't expect to update it particularly often
 
-export PYTHONPATH=$PYTHONPATH:/home/packages
+export PYTHONPATH=/home/packages:$PYTHONPATH
 if [[ "$1" == "get_env" ]]; then
     echo "$(cat /home/McEnv/env.sh)"
 elif [[ "$1" == "--exec" ]]; then
