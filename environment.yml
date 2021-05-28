@@ -2,5 +2,6 @@ dependencies:
   - pip
   - pip:
       - tensorflow-gpu
+      - cupy-cuda112
       - pyvibdmc
       - memory-profiler

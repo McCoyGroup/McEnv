@@ -3,6 +3,8 @@
 #  TensorFlow:
 #    we want proper GPU tensorflow support + the ability to use Jupyter
 #    in case we're running locally (likely will not work on Hyak)
+#    we will later on update the library version on TF, but this gets us
+#    all of the GPU-comm setup bullshit
 #
 ##################################################################################
 FROM tensorflow/tensorflow:latest-gpu-jupyter
