@@ -7,7 +7,7 @@
 #    all of the GPU-comm setup bullshit
 #
 ##################################################################################
-FROM tensorflow/tensorflow:latest-gpu-jupyter
+FROM mccoygroup/tensorflow-mpi:ompi-3-1-4
 
 ##################################################################################
 #
@@ -17,13 +17,7 @@ FROM tensorflow/tensorflow:latest-gpu-jupyter
 #    this is pulled directly form the anaconda Dockerfile
 #
 ##################################################################################
-ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 ENV PATH=/opt/conda/bin:$PATH
-
-RUN apt-get update --fix-missing && apt-get install -y wget bzip2 ca-certificates \
-    libglib2.0-0 libxext6 libsm6 libxrender1 \
-    git mercurial subversion && \
-    apt-get clean
 
 RUN wget --quiet https://repo.anaconda.com/archive/Anaconda3-2020.11-Linux-x86_64.sh -O ~/anaconda.sh
 
@@ -35,7 +29,7 @@ RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
     echo "conda activate base" >> ~/.bashrc && \
     find /opt/conda/ -follow -type f -name '*.a' -delete && \
     find /opt/conda/ -follow -type f -name '*.js.map' -delete && \
-    /opt/conda/bin/conda clean -afy
+    /opt/conda/bin/conda clean -a -f -y
 
 ##################################################################################
 #
@@ -44,53 +38,11 @@ RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
 #
 ##################################################################################
 
-RUN df -h && \
-    du -sh /opt/ && \
-    du -sh /usr/lib
+#RUN df -h && \
+#    du -sh /opt/ && \
+#    du -sh /usr/lib
 
-##################################################################################
-#
-#   MPI:
-#    We provide two different ways to install MPI, intended for Mox/Hyak with Singularity
-#    or NeRSC/Shifter respectively
-#    We need different versions, unfortunately, because the implementation and version _inside_ the
-#    container needs to match the loaded one on the host
-#    It's dumb, we know, but comment out the one you don't need
-#
-##################################################################################
-
-## Open MPI Support
-# pulled from /sw/singularity-images/testing/ngsolve-2.def
-ARG MPI_VERSION=3.1.4
-ARG MPI_MAJOR_VERSION=3.1
-ARG MPI_URL="https://download.open-mpi.org/release/open-mpi/v${MPI_MAJOR_VERSION}/openmpi-${MPI_VERSION}.tar.bz2"
-ARG MPI_DIR=/opt/ompi
-RUN mkdir -p /tmp/ompi && \
-    mkdir -p /opt && \
-    # Download
-    cd /tmp/ompi && wget -O openmpi-$MPI_VERSION.tar.bz2 $MPI_URL && tar -xjf openmpi-$MPI_VERSION.tar.bz2 && \
-    # Compile and install
-    cd /tmp/ompi/openmpi-$MPI_VERSION && ./configure --prefix=$MPI_DIR --disable-oshmem --enable-branch-probabilities && make -j12 install && \
-    make clean
-
-
-## MPICH Support
-#ARG MPI_VERSION=3.2
-#ARG MPI_MAJOR_VERSION=3.2
-#ARG MPI_URL="https://www.mpich.org/static/downloads/${MPI_VERSION}/mpich-${MPI_VERSION}.tar.gz"
-#ARG MPI_DIR=/opt/mpich
-#RUN mkdir -p /tmp/mpi && \
-#    mkdir -p /opt && \
-#    # Download
-#    cd /tmp/mpi && wget -O mpich-$MPI_VERSION.tar.gz $MPI_URL && tar -xjf mpich-$MPI_VERSION.tar.gz && \
-#    # Compile and install
-#    cd /tmp/mpi/mpich-$MPI_VERSION && ./configure --prefix=$MPI_DIR --disable-oshmem --enable-branch-probabilities && make -j12 install && \
-#    make clean
-
-ENV PATH=$MPI_DIR/bin:$PATH
-ENV LD_LIBRARY_PATH=$MPI_DIR/lib:$LD_LIBRARY_PATH
-
-RUN pip install mpi4py --disable-pip-version-check
+#RUN pip install mpi4py --disable-pip-version-check
 
 ##################################################################################
 #

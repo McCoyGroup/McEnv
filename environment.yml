@@ -4,3 +4,4 @@ dependencies:
       - tensorflow-gpu
       - cupy-cuda112
       - memory-profiler
+      - mpi4py
