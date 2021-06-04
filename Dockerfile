@@ -39,6 +39,17 @@ RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
 
 ##################################################################################
 #
+#   FILE USAGE INFO:
+#    For debug purposes want to know how much space we're using
+#
+##################################################################################
+
+RUN df -h && \
+    du -sh /opt/ && \
+    du -sh /usr/lib
+
+##################################################################################
+#
 #   MPI:
 #    We provide two different ways to install MPI, intended for Mox/Hyak with Singularity
 #    or NeRSC/Shifter respectively
