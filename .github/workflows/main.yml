@@ -2,7 +2,7 @@ name: build-image
 
 on:
   push:
-    branches: [ main, ompi, mpich ]
+    branches: [ main, centos-mpi ]
 
 jobs:
   main:
@@ -18,6 +18,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: true
-          tags: mccoygroup/mcenv:latest
+          tags: mccoygroup/mcenv:centos-mpi
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
