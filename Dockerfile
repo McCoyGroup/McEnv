@@ -7,8 +7,7 @@
 #    all of the GPU-comm setup bullshit
 #
 ##################################################################################
-FROM mccoygroup/tensorflow-mpi:ompi-3-1-4
-
+FROM mccoygroup/centos-mpi:ompi-3-1-4
 ##################################################################################
 #
 #  Anaconda:
@@ -52,22 +51,12 @@ RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
 #
 ##################################################################################
 
-RUN apt-get install -y gfortran && \
-    apt-get install -y libgfortran5 && \
-    apt-get install -y libgfortran3 && \
+# May need to do yum install libgfortran5 analog
+#RUN apt-get install -y libgfortran5 && \
+#    apt-get install -y libgfortran3 && \
 
-    apt-get clean
+#    apt-get clean
     
-##################################################################################
-#
-#  McEnv:
-#    we're going to bundle a small set of useful scripts, but not introduce
-#    any complicated runtime logic or any of that jazz
-#    this is inspired by the earlier RynLib container which had a similar sort
-#    of run script, but which also had much more complicated eval. semantics
-#
-##################################################################################
-
 ADD . /home/McEnv
 
 RUN . /opt/conda/bin/activate base \
