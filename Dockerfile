@@ -58,7 +58,7 @@ RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
 RUN yum install -y \
         libgfortran \
         libgomp \
-        intel-mkl
+        intel-mkl-2020.0-088
 
 #    apt-get clean
     
