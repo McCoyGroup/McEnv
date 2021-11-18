@@ -25,6 +25,7 @@ RUN yum install -y \
         libgomp
 
 RUN yum install -y \
+    scl-utils \
     centos-release-scl \
     devtoolset-8-gcc \
     devtoolset-8-gcc-c++ && \
