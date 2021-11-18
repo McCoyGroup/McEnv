@@ -22,8 +22,13 @@ FROM mccoygroup/centos-mpi:ompi-3-1-4
 
 RUN yum install -y \
         libgfortran \
-        libgomp \
-        devtoolset-7-gcc*
+        libgomp
+
+RUN yum install -y \
+    centos-release-scl \
+    devtoolset-8-gcc \
+    devtoolset-8-gcc-c++ && \
+    scl enable devtoolset-8 -- bash
 #        centos-release-scl \
 #        scl-utils \
 #        devtoolset-7-gcc* && \
