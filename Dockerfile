@@ -23,7 +23,9 @@ FROM mccoygroup/centos-mpi:ompi-3-1-4
 RUN yum install -y \
         libgfortran \
         libgomp \
-        gcc-c++
+        centos-release-scl \
+        devtoolset-7-gcc* && \
+        scl enable devtoolset-7 bash
 
 RUN yum-config-manager --add-repo https://yum.repos.intel.com/mkl/setup/intel-mkl.repo && \
     rpm --import https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB && \
