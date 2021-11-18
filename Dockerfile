@@ -55,6 +55,11 @@ RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
 #RUN apt-get install -y libgfortran5 && \
 #    apt-get install -y libgfortran3 && \
 
+RUN yum install -y \
+        libgfortran \
+        libgomp \
+        intel-mkl
+
 #    apt-get clean
     
 ADD . /home/McEnv
