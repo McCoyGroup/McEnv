@@ -23,15 +23,15 @@ FROM mccoygroup/centos-mpi:ompi-3-1-4
 RUN yum install -y \
         libgfortran \
         libgomp \
-        devtoolset-7
+        devtoolset-7-gcc*
 #        centos-release-scl \
 #        scl-utils \
 #        devtoolset-7-gcc* && \
 #        scl enable devtoolset-7 bash
 
-RUN yum-config-manager --add-repo https://yum.repos.intel.com/mkl/setup/intel-mkl.repo && \
-    rpm --import https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB && \
-    yum install -y intel-mkl
+#RUN yum-config-manager --add-repo https://yum.repos.intel.com/mkl/setup/intel-mkl.repo && \
+#    rpm --import https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB && \
+#    yum install -y intel-mkl
 
 #    apt-get clean
 
@@ -52,12 +52,12 @@ RUN wget --quiet https://repo.anaconda.com/archive/Anaconda3-2020.11-Linux-x86_6
 RUN /bin/bash ~/anaconda.sh -b -p /opt/conda && \
     rm ~/anaconda.sh
 
-RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
-    echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
-    echo "conda activate base" >> ~/.bashrc && \
-    find /opt/conda/ -follow -type f -name '*.a' -delete && \
-    find /opt/conda/ -follow -type f -name '*.js.map' -delete && \
-    /opt/conda/bin/conda clean -a -f -y
+#RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
+#    echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
+#    echo "conda activate base" >> ~/.bashrc && \
+#    find /opt/conda/ -follow -type f -name '*.a' -delete && \
+#    find /opt/conda/ -follow -type f -name '*.js.map' -delete && \
+#    /opt/conda/bin/conda clean -a -f -y
 
 # END
 
