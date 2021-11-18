@@ -20,6 +20,7 @@ FROM mccoygroup/tensorflow-mpi:ompi-3-1-4
 ENV PATH=/opt/conda/bin:$PATH
 
 RUN wget --quiet https://repo.anaconda.com/archive/Anaconda3-2020.11-Linux-x86_64.sh -O ~/anaconda.sh
+#  RUN wget --quiet https://repo.anaconda.com/archive/Anaconda3-2021.05-Linux-x86_64.sh -O ~/anaconda.sh
 
 RUN /bin/bash ~/anaconda.sh -b -p /opt/conda && \
     rm ~/anaconda.sh
@@ -52,9 +53,11 @@ RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
 ##################################################################################
 
 RUN apt-get install -y gfortran && \
+    apt-get install -y libgfortran5 && \
+    apt-get install -y libgfortran3 && \
     apt-get install -y intel-mkl && \
     apt-get clean
-
+    
 ##################################################################################
 #
 #  McEnv:
