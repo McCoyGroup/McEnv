@@ -52,6 +52,7 @@ RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
 ##################################################################################
 
 RUN apt-get install -y gfortran && \
+    apt-get install -y intel-mkl && \
     apt-get clean
 
 ##################################################################################
