@@ -24,6 +24,7 @@ RUN yum install -y \
         libgfortran \
         libgomp \
         centos-release-scl \
+        scl-utils \
         devtoolset-7-gcc* && \
         scl enable devtoolset-7 bash
 
