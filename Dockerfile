@@ -8,6 +8,11 @@
 #
 ##################################################################################
 FROM mccoygroup/centos-mpi:ompi-3-1-4
+
+RUN yum-config-manager --add-repo https://yum.repos.intel.com/mkl/setup/intel-mkl.repo && \
+    rpm --import https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB && \
+    yum install -y intel-mkl
+    
 ##################################################################################
 #
 #  Anaconda:
@@ -58,10 +63,6 @@ RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
 RUN yum install -y \
         libgfortran \
         libgomp
-
-RUN yum-config-manager --add-repo https://yum.repos.intel.com/mkl/setup/intel-mkl.repo && \
-    rpm --import https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2020.PUB && \
-    yum install -y intel-mkl
 
 #    apt-get clean
     
