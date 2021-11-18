@@ -26,7 +26,9 @@ RUN yum install -y \
 
 RUN yum install -y \
     scl-utils \
-    centos-release-scl \
+    centos-release-scl
+
+RUN yum install -y \
     devtoolset-8-gcc \
     devtoolset-8-gcc-c++ && \
     scl enable devtoolset-8 -- bash
